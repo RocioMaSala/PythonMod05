@@ -3,7 +3,7 @@ from typing import Any
 
 
 class DataProcessor(ABC):
-    def __init__(self):
+    def __init__(self) -> None:
         self._result: list[tuple[int, Any]] = []
         self._rank = 0
 
@@ -27,18 +27,20 @@ class NumericProcessor(DataProcessor):
             return all(isinstance(x, (int, float)) for x in data)
         return False
 
-    def ingest(self, data: float | int | list[float | int]) -> None:
-        if self.validate(data):
-            if isinstance(data, list):
-                for x in data:
-                    self._result.append((self._rank, str(x)))
+    def ingest(self, data: Any) -> None:
+        try:
+            if self.validate(data):
+                if isinstance(data, list):
+                    for x in data:
+                        self._result.append((self._rank, str(x)))
+                        self._rank += 1
+                else:
+                    self._result.append((self._rank, str(data)))
                     self._rank += 1
             else:
-                self._result.append((self._rank, str(data)))
-                self._rank += 1
-        else:
-            raise ValueError("Got exception: Improper numeric data")
-
+                raise ValueError(" - Got exception: Improper numeric data")
+        except ValueError as e:
+            print(e)
 
 class TextProcessor(DataProcessor):
     def validate(self, data: Any) -> bool:
@@ -47,7 +49,6 @@ class TextProcessor(DataProcessor):
         if isinstance(data, list):
             return all(isinstance(x, (str)) for x in data)
         return False
-
 
     def ingest(self, data: str | list[str]) -> None:
         if self.validate(data):
@@ -74,7 +75,7 @@ class LogProcessor(DataProcessor):
         if self.validate(data):
             if isinstance(data, list):
                 for x in data:
-                    self._result.append((self._rank, x)) #echar un vistazo!!
+                    self._result.append((self._rank, x))  # echar un vistazo!!
                     self._rank += 1
 
             else:
@@ -97,11 +98,10 @@ if __name__ == "__main__":
     print(f"Trying to validate input '{num_1}': {np.validate(num_1)}")
     print(f"Trying to validate input '{num_2}': {np.validate(num_2)}")
 
-    print(f"Test invalid ingestion of string '{num_3}' without prior validation:")
-    try:
-        np.ingest(num_3)
-    except ValueError as e:
-        print(e)
+    print(
+        f"Test invalid ingestion of string '{num_3}' without prior validation:"
+        )
+    np.ingest(num_3)
 
     print(f"Processing data: {num_4}")
     np.ingest(num_4)
@@ -128,7 +128,10 @@ if __name__ == "__main__":
     print("\nTesting Log Processor...")
     lp = LogProcessor()
     log_1 = "Hello"
-    log_2 = [{"log_level": "NOTICE", "log_message": "Connection to server"}, {"log_level": "ERROR", "log_message": "Unauthorized access!!"}]
+    log_2 = [
+        {"log_level": "NOTICE", "log_message": "Connection to server"},
+        {"log_level": "ERROR", "log_message": "Unauthorized access!!"}
+        ]
 
     print(f"Trying to validate input '{log_1}': {lp.validate(log_1)}")
 
