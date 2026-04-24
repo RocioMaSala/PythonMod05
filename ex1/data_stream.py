@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any
+import typing
 
 
 class DataProcessor(ABC):
@@ -85,73 +86,106 @@ class LogProcessor(DataProcessor):
                         self._rank += 1
 
                 else:
-                    formatted = "|".join(f"{k}={v}" for k, v in x.items()) # echar un vistazo a la x!
+                    formatted = "|".join(f"{k}={v}" for k, v in x.items())
                     self._result.append((self._rank, formatted))
                     self._rank += 1
-
             else:
                 raise ValueError("Got exception: Improper log data")
         except ValueError as e:
             print(e)
 
 
+class DataStream:
+    def __init__(self) -> None:
+        print("Initialize Data Stream...")
+        self.processors: list[DataProcessor] = []
+
+    def register_processor(self, proc: DataProcessor) -> None:
+        if proc:
+            self.processors.append(proc)
+        else:
+            return
+
+    def process_stream(self, stream: list[typing.Any]) -> None:
+        for data in stream:
+            processed = False
+            for processor in self.processors:
+                if processor.validate(data):
+                    processor.ingest(data)
+                    processed = True
+            if not processed:
+                print(
+                 f"Data Stream error - Can't process element in stream {data}"
+                )
+
+    def print_processors_stats(self) -> None:
+        print("=== DataStream statistics ===")
+        if not self.processors:
+            print("No processor found, no data")
+        else:
+            for processor in self.processors:
+                name = processor.__class__.__name__
+                total = processor._rank
+                remaining = len(processor._result)
+                print(
+                    f"{name}: total {total} items processed, "
+                    f"remaining {remaining} on processor"
+                    )
+
+
 if __name__ == "__main__":
-    print("=== Code Nexus - Data Processor ===\n")
+    print("=== Code Nexus - Data Stream ===\n")
 
-    print("Testing Numeric Processor...")
+    dt = DataStream()
+    dt.print_processors_stats()
+    print()
+
     np = NumericProcessor()
-    num_1 = 42
-    num_2 = "Hello"
-    num_3 = "foo"
-    num_4 = [1, 2, 3, 4, 5]
+    dt.register_processor(np)
 
-    print(f"Trying to validate input '{num_1}': {np.validate(num_1)}")
-    print(f"Trying to validate input '{num_2}': {np.validate(num_2)}")
+    print("Registering Numeric Processor\n")
+    stream = [
+        "Hello world",
+        [3.14, -1, 2.71],
+        [
+            {
+                "log_level": "WARNING",
+                "log_message": "Telnet access! Use ssh instead"
+            },
+            {
+                "log_level": "INFO",
+                "log_message": "User wil is connected"
+            }
+        ],
+        42,
+        ["Hi", "five"]
+        ]
+    print(f"Send first batch of data on stream: {stream}")
+    dt.process_stream(stream)
+
+    print()
+    dt.print_processors_stats()
+
+    print()
+    print("Registering other data processors")
+    tp = TextProcessor()
+    lp = LogProcessor()
+    dt.register_processor(tp)
+    dt.register_processor(lp)
+    print("Send the same batch again")
+    dt.process_stream(stream)
+
+    dt.print_processors_stats()
 
     print(
-        f"Test invalid ingestion of string '{num_3}' without prior validation:"
+        "\nConsume some elements from the data processsors: "
+        "Numeric 3, Text 2, Log 1"
         )
-    np.ingest(num_3)
+    for _ in range(3):
+        rank, value = np.output()
+    for _ in range(2):
+        rank, value = tp.output()
+    for _ in range(1):
+        rank, value = lp.output()
 
-    print(f"Processing data: {num_4}")
-    np.ingest(num_4)
-
-    print("Extracting 3 values...")
-    for d in range(3):
-        rank, data = np.output()
-        print(f"Numeric value {rank}: {data}")
-
-    print("\nTesting Text Processor...")
-    tp = TextProcessor()
-    txt_1 = 42
-    txt_2 = ["Hello", "Nexus", "World"]
-
-    print(f"Trying to validate input '{txt_1}': {tp.validate(txt_1)}")
-
-    print(f"Processing data: {txt_2}")
-    tp.ingest(txt_2)
-
-    print("Extracting 1 value... ")
-    rank, data = tp.output()
-    print(f"Text value {rank}: {data}")
-
-    print("\nTesting Log Processor...")
-    lp = LogProcessor()
-    log_1 = "Hello"
-    log_2 = [
-        {"log_level": "NOTICE", "log_message": "Connection to server"},
-        {"log_level": "ERROR", "log_message": "Unauthorized access!!"}
-        ]
-
-    print(f"Trying to validate input '{log_1}': {lp.validate(log_1)}")
-
-    print(f"Processing data: {log_2}")
-    lp.ingest(log_2)
-
-    print("Extracting 2 values... ")
-    for d in range(2):
-        rank, data = lp.output()
-        parsed = dict(item.split("=") for item in data.split("|"))
-        print(
-            f"Log entry {rank}: {parsed['log_level']}: {parsed['log_message']}"
-            )
+    dt.print_processors_stats()
