@@ -4,7 +4,7 @@ from typing import Any
 
 class DataProcessor(ABC):
     def __init__(self) -> None:
-        self._result: list[tuple[int, Any]] = []
+        self._result: list[tuple[int, str]] = []
         self._rank = 0
 
     @abstractmethod
@@ -85,7 +85,7 @@ class LogProcessor(DataProcessor):
                         self._rank += 1
 
                 else:
-                    formatted = "|".join(f"{k}={v}" for k, v in x.items()) # echar un vistazo a la x!
+                    formatted = "|".join(f"{k}={v}" for k, v in data.items())
                     self._result.append((self._rank, formatted))
                     self._rank += 1
 

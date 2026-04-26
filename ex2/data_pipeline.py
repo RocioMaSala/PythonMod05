@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any
+from typing import Protocol
 import typing
 
 
@@ -95,9 +96,40 @@ class LogProcessor(DataProcessor):
             print(e)
 
 
+class ExportPlugin (Protocol):
+    def process_output(self, data: list[tuple[int, str]]) -> None:
+        pass
+
+
+class CSVExportPlugin:  # Comma Separated Values
+    def process_output(self, data: list[tuple[int, str]]) -> None:
+        values = []
+
+        for item in data:
+            values.append(item[1])
+
+        line = ",".join(values)
+
+        print("CSV Output:")
+        print(line)
+
+
+class JSONExportPlugin:
+    def process_output(self, data: list[tuple[int, str]]) -> None:
+        json_items = []
+
+        for rank, value in data:
+            json_items.append(f'{{"item_{rank}", "{value}"}}')
+
+        json_string = ",".join(json_items)
+
+        print("JSON Output:")
+        print(json_string)
+
+
 class DataStream:
     def __init__(self) -> None:
-        print("Initialize Data Stream...")
+        print("Initialize Data Stream...\n")
         self.processors: list[DataProcessor] = []
 
     def register_processor(self, proc: DataProcessor) -> None:
@@ -118,6 +150,20 @@ class DataStream:
                  f"Data Stream error - Can't process element in stream {data}"
                 )
 
+    def output_pipeline(self, nb: int, plugin: ExportPlugin) -> None:
+        for processor in self.processors:
+            collected: list[tuple[int, str]] = []
+            remaining = nb
+            while remaining > 0:
+                if processor._result:
+                    item = processor.output()
+                    collected.append(item)
+                    remaining -= 1
+                else:
+                    break
+            if collected:
+                plugin.process_output(collected)
+
     def print_processors_stats(self) -> None:
         print("=== DataStream statistics ===")
         if not self.processors:
@@ -134,16 +180,21 @@ class DataStream:
 
 
 if __name__ == "__main__":
-    print("=== Code Nexus - Data Stream ===\n")
+    print("=== Code Nexus - Data Pipeline ===\n")
 
     dt = DataStream()
     dt.print_processors_stats()
     print()
 
     np = NumericProcessor()
-    dt.register_processor(np)
+    tp = TextProcessor()
+    lp = LogProcessor()
 
-    print("Registering Numeric Processor\n")
+    dt.register_processor(np)
+    dt.register_processor(tp)
+    dt.register_processor(lp)
+
+    print("Registering Processors\n")
     stream = [
         "Hello world",
         [3.14, -1, 2.71],
@@ -167,25 +218,41 @@ if __name__ == "__main__":
     dt.print_processors_stats()
 
     print()
-    print("Registering other data processors")
-    tp = TextProcessor()
-    lp = LogProcessor()
-    dt.register_processor(tp)
-    dt.register_processor(lp)
-    print("Send the same batch again")
-    dt.process_stream(stream)
+
+    print("Send 3 processed data from each processor to a CSV plugin:")
+    csv = CSVExportPlugin()
+    dt.output_pipeline(3, csv)
+
+    print()
+    dt.print_processors_stats()
+    print()
+
+    stream2 = [
+        21,
+        ["I love AI", "LLMs are wonderful", "Stay healthy"],
+        [
+            {
+                "log_level": "ERROR",
+                "log_message": "500 server crash"
+            },
+            {
+                "log_level": "NOTICE",
+                "log_message": "Certificate expires in 10 days"
+            }
+        ],
+        [32, 42, 64, 84, 128, 168],
+        "World hello"
+        ]
+    print(f"Send another batch of data: {stream2}")
+    dt.process_stream(stream2)
+    print()
 
     dt.print_processors_stats()
+    print()
 
-    print(
-        "\nConsume some elements from the data processsors: "
-        "Numeric 3, Text 2, Log 1"
-        )
-    for _ in range(3):
-        rank, value = np.output()
-    for _ in range(2):
-        rank, value = tp.output()
-    for _ in range(1):
-        rank, value = lp.output()
+    print("Send 5 processed data from each processor to a JSON plugin:")
+    json = JSONExportPlugin()
+    dt.output_pipeline(5, json)
 
+    print()
     dt.print_processors_stats()
